@@ -8,6 +8,12 @@
 #ifndef OroSetup
   #define OroSetup "..\dist\Orologio_Dimotikou_Setup.exe"
 #endif
+#ifndef OroSetup86
+  #define OroSetup86 "..\dist\Orologio_Dimotikou_Setup_x86.exe"
+#endif
+#ifndef EfSetup86
+  #define EfSetup86 "..\dist\Efimeries_Setup_x86.exe"
+#endif
 #ifndef EfSetup
   #define EfSetup "..\dist\Efimeries_Setup_x64.exe"
 #endif
@@ -34,8 +40,7 @@ SetupIconFile=..\src\app.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+; Windows 64-bit και 32-bit: κάθε εφαρμογή εγκαθίσταται στην αρχιτεκτονική του υπολογιστή (το Ωρολόγιο 32-bit χωρίς αυτόματη δημιουργία προγράμματος).
 MinVersion=10.0
 
 [Languages]
@@ -53,8 +58,10 @@ Name: "appicons"; Description: "Και χωριστά εικονίδια για 
 Source: "..\src\launcher.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "school.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\app.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#OroSetup}"; DestDir: "{tmp}"; DestName: "orologio_setup.exe"; Flags: deleteafterinstall
-Source: "{#EfSetup}"; DestDir: "{tmp}"; DestName: "efimeries_setup.exe"; Flags: deleteafterinstall
+Source: "{#OroSetup}"; DestDir: "{tmp}"; DestName: "orologio_setup.exe"; Flags: deleteafterinstall; Check: IsWin64
+Source: "{#EfSetup}"; DestDir: "{tmp}"; DestName: "efimeries_setup.exe"; Flags: deleteafterinstall; Check: IsWin64
+Source: "{#OroSetup86}"; DestDir: "{tmp}"; DestName: "orologio_setup.exe"; Flags: deleteafterinstall; Check: not IsWin64
+Source: "{#EfSetup86}"; DestDir: "{tmp}"; DestName: "efimeries_setup.exe"; Flags: deleteafterinstall; Check: not IsWin64
 
 [Icons]
 Name: "{autoprograms}\Σχολικές Εφαρμογές"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\launcher.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
@@ -147,7 +154,10 @@ procedure InitializeWizard;
 begin
   AppsPage := CreateInputOptionPage(wpWelcome, 'Εφαρμογές', 'Ποιες εφαρμογές θα εγκατασταθούν;',
     'Μπορείτε να προσθέσετε την άλλη εφαρμογή αργότερα, ξανατρέχοντας αυτή την εγκατάσταση.', False, False);
-  AppsPage.Add('Ωρολόγιο Σχολείου (ωρολόγιο πρόγραμμα, αναπληρώσεις, έντυπα Διεύθυνσης)');
+  if IsWin64 then
+    AppsPage.Add('Ωρολόγιο Σχολείου (ωρολόγιο πρόγραμμα, αναπληρώσεις, έντυπα Διεύθυνσης)')
+  else
+    AppsPage.Add('Ωρολόγιο Σχολείου (Windows 32-bit: αναπληρώσεις, εκτυπώσεις, έντυπα — χωρίς αυτόματη δημιουργία προγράμματος)');
   AppsPage.Add('Εφημερίες Εκπαιδευτικών');
   AppsPage.Values[0] := True;
   AppsPage.Values[1] := True;

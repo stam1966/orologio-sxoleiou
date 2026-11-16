@@ -14,7 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 PY_VERSION = '3.12.10'
-EMBED_URL = 'https://www.python.org/ftp/python/%s/python-%s-embed-amd64.zip' % (PY_VERSION, PY_VERSION)
+X86 = '--arch' in sys.argv and sys.argv[sys.argv.index('--arch') + 1] == 'x86'
+EMBED_URL = 'https://www.python.org/ftp/python/%s/python-%s-embed-%s.zip' % (PY_VERSION, PY_VERSION, 'win32' if X86 else 'amd64')
 APP = 'Orologio_Dimotikou'
 SRC_FILES = ['core.py', 'rules.py', 'outputs.py', 'server.py', 'updater.py', 'preflight.py', 'asc.py', 'pdfs.py', 'versions.py',
              'backup.py', 'curricula.py', 'assistant.py', 'xlimport.py', 'rozimport.py', 'gymimport.py', 'subs.py', 'admin.py', 'forms.py', 'suite.py', 'exchange.py', 'launcher.ps1', 'index.html', 'manual.html', 'app.ico', 'demo_school.json']
@@ -71,6 +72,10 @@ def build_runtime(target):
     zipfile.ZipFile(io.BytesIO(raw)).extractall(target)
     (target / ('python%s._pth' % PY_VERSION.replace('.', '')[:3])).write_text('python312.zip\n.\nLib/site-packages\n../src\nimport site\n', encoding='ascii')
     site = target / 'Lib' / 'site-packages'; site.mkdir(parents=True, exist_ok=True)
+    if X86:
+        # Windows 32-bit: χωρίς OR-Tools (δεν υπάρχει για 32-bit)· όλα τα άλλα είναι καθαρή Python ή μέσα στο src/vendor.
+        # Το python.exe 32-bit έχει ήδη το vcruntime140.dll.
+        return
     pip = [sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-compile', '--only-binary=:all:',
            '--platform', 'win_amd64', '--python-version', '3.12', '--implementation', 'cp', '--target', str(site),
            '-r', str(ROOT / 'requirements-runtime.txt')]
@@ -84,7 +89,7 @@ def build_runtime(target):
 
 
 def build_full(v, files, runtime_from=None):
-    folder = DIST / APP
+    folder = DIST / (APP + ('_x86' if X86 else ''))
     if folder.exists():
         shutil.rmtree(folder)
     if runtime_from:
@@ -95,6 +100,9 @@ def build_full(v, files, runtime_from=None):
         p = folder / n; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(b)
     (folder / 'data').mkdir(exist_ok=True)
     (folder / 'data' / 'README.txt').write_text('Εδώ αποθηκεύονται τα δεδομένα του σχολείου σας (project.json) και τα αντίγραφα ασφαλείας.\n', encoding='utf-8')
+    if X86:
+        print('full x86:', folder)
+        return folder
     out = DIST / ('Orologio_Dimotikou_' + v.split('-')[0] + '_Egkatastasi.zip')
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for p in sorted(folder.rglob('*')):
@@ -106,6 +114,9 @@ def build_full(v, files, runtime_from=None):
 
 if __name__ == '__main__':
     v = version(); files = app_files()
+    if X86:
+        build_full(v, files)
+        sys.exit(0)
     build_update(v, files)
     if '--update-only' not in sys.argv:
         rf = sys.argv[sys.argv.index('--runtime-from') + 1] if '--runtime-from' in sys.argv else None

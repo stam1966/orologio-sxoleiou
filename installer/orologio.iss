@@ -3,6 +3,9 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
+#ifndef Arch
+  #define Arch "x64"
+#endif
 #ifndef SourceDir
   #define SourceDir "..\dist\Orologio_Dimotikou"
 #endif
@@ -24,15 +27,21 @@ DisableDirPage=auto
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\dist
+#if Arch == "x86"
+OutputBaseFilename=Orologio_Dimotikou_Setup_x86_{#AppVersion}
+#else
 OutputBaseFilename=Orologio_Dimotikou_Setup_{#AppVersion}
+#endif
 SetupIconFile=..\src\app.ico
 UninstallDisplayIcon={app}\src\app.ico
 UninstallDisplayName=Ωρολόγιο Σχολείου
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+#if Arch == "x64"
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 MinVersion=10.0
 CloseApplications=force
 RestartApplications=no

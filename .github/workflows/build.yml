@@ -68,20 +68,39 @@ jobs:
 
       - name: Δοκιμαστική σιωπηλή εγκατάσταση
         run: |
-          $setup = Get-ChildItem dist\Orologio_Dimotikou_Setup_*.exe | Select-Object -First 1
+          $setup = Get-ChildItem dist\Orologio_Dimotikou_Setup_*.exe -Exclude '*_x86_*' | Select-Object -First 1
           Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=' -Wait
           $app = "$env:LOCALAPPDATA\Programs\OrologioDimotikou"
           if (-not (Test-Path "$app\runtime\pythonw.exe")) { throw "Η εγκατάσταση δεν δημιούργησε την εφαρμογή" }
           & "$app\runtime\python.exe" -X utf8 "$app\src\preflight.py"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      - name: Ωρολόγιο για Windows 32-bit (χωρίς OR-Tools)
+        run: |
+          $v = (Get-Content dist/VERSION.txt).Split('-')[0]
+          python -X utf8 tools/build_package.py --arch x86
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $py = "dist\Orologio_Dimotikou_x86\runtime\python.exe"
+          $chk = & $py -X utf8 -c "import struct,core,rules,subs,forms,outputs,admin,suite,exchange; assert struct.calcsize('P')==4, 'not 32-bit'; r=rules.solve({},1); assert r['status']=='error' and '64-bit' in r['message'], r; print('x86 OK', core.VERSION, rules.has_solver())" 2>&1 | Out-String
+          Write-Host $chk
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error title=Ωρολόγιο 32-bit::$chk"; exit 1 }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          $out = & $iscc "/DAppVersion=$v" "/DArch=x86" "/DSourceDir=..\dist\Orologio_Dimotikou_x86" installer\orologio.iss 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) { Write-Host ("::error title=Inno Setup x86::" + ((($out -split "`n") | Select-Object -Last 25) -join '%0A')); exit 1 }
+          $s86 = Get-ChildItem dist\Orologio_Dimotikou_Setup_x86_*.exe | Select-Object -First 1
+          Copy-Item $s86.FullName dist\Orologio_Dimotikou_Setup_x86.exe
+          Copy-Item $s86.FullName dist\Orologio_Sxoleiou_Setup_x86.exe
+          Write-Host ("Setup 32-bit: " + $s86.Name + " · " + [math]::Round($s86.Length/1MB,1) + " MB")
+
       - name: Setup σουίτας «Σχολικές Εφαρμογές» (Ωρολόγιο + Εφημερίες)
         run: |
           $v = (Get-Content dist/VERSION.txt).Split('-')[0]
-          $oro = (Get-ChildItem dist\Orologio_Dimotikou_Setup_*.exe | Select-Object -First 1).FullName
+          $oro = (Get-ChildItem dist\Orologio_Dimotikou_Setup_*.exe -Exclude '*_x86*' | Select-Object -First 1).FullName
+          $oro86 = (Resolve-Path dist\Orologio_Dimotikou_Setup_x86.exe).Path
           Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/stam1966/efimeries-ekpaideftikon/releases/latest/download/Efimeries_Setup_x64.exe' -OutFile dist\Efimeries_Setup_x64.exe
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/stam1966/efimeries-ekpaideftikon/releases/latest/download/Efimeries_Setup_x86.exe' -OutFile dist\Efimeries_Setup_x86.exe
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          $out = & $iscc "/DAppVersion=$v" "/DOroSetup=$oro" "/DEfSetup=$((Resolve-Path dist\Efimeries_Setup_x64.exe).Path)" installer\suite.iss 2>&1 | Out-String
+          $out = & $iscc "/DAppVersion=$v" "/DOroSetup=$oro" "/DEfSetup=$((Resolve-Path dist\Efimeries_Setup_x64.exe).Path)" "/DOroSetup86=$oro86" "/DEfSetup86=$((Resolve-Path dist\Efimeries_Setup_x86.exe).Path)" installer\suite.iss 2>&1 | Out-String
           Write-Host $out
           if ($LASTEXITCODE -ne 0) { Write-Host ("::error title=Inno Setup σουίτας::" + ((($out -split "`n") | Select-Object -Last 25) -join '%0A')); exit 1 }
           $suite = Get-ChildItem dist\Sxolikes_Efarmoges_Setup_*.exe | Select-Object -First 1
@@ -104,11 +123,11 @@ jobs:
           if (-not (Test-Path $snap)) { Write-Host "::warning title=Παράθυρο επιλογής::Δεν δημιουργήθηκε εικόνα" }
           Get-Content "$env:APPDATA\SchoolApps\suite.json"
           Copy-Item $suite.FullName dist\Sxolikes_Efarmoges_Setup.exe
-          Remove-Item dist\Efimeries_Setup_x64.exe
+          Remove-Item dist\Efimeries_Setup_x64.exe, dist\Efimeries_Setup_x86.exe
 
       - name: Αντίγραφο με σταθερό όνομα (για τον μόνιμο σύνδεσμο λήψης)
         run: |
-          $setup = Get-ChildItem dist\Orologio_Dimotikou_Setup_*.exe | Select-Object -First 1
+          $setup = Get-ChildItem dist\Orologio_Dimotikou_Setup_*.exe -Exclude '*_x86*' | Select-Object -First 1
           Copy-Item $setup.FullName dist\Orologio_Dimotikou_Setup.exe
           Copy-Item $setup.FullName dist\Orologio_Sxoleiou_Setup.exe
           Copy-Item (Get-ChildItem dist\Orologio_Enimerosi_*.zip | Select-Object -First 1).FullName dist\Orologio_Enimerosi.zip
@@ -153,6 +172,7 @@ jobs:
             dist/Orologio_Dimotikou_Setup_*.exe
             dist/Orologio_Dimotikou_Setup.exe
             dist/Orologio_Sxoleiou_Setup.exe
+            dist/Orologio_Sxoleiou_Setup_x86.exe
             dist/Sxolikes_Efarmoges_Setup_*.exe
             dist/Sxolikes_Efarmoges_Setup.exe
             dist/Orologio_Enimerosi.zip

@@ -839,8 +839,24 @@ def build(p, cp_model, diag=False):
     return dict(model=model, choices=choices, lits=lits)
 
 
+NO_SOLVER_MSG = ('Η αυτόματη δημιουργία προγράμματος δεν είναι διαθέσιμη σε αυτόν τον υπολογιστή: χρειάζεται Windows 64-bit '
+                 '(η μηχανή επίλυσης OR-Tools δεν υπάρχει για 32-bit). Όλα τα υπόλοιπα (προβολή, αλλαγές με το χέρι, αναπληρώσεις, '
+                 'εκτυπώσεις, έντυπα) λειτουργούν κανονικά· το πρόγραμμα μπορεί να δημιουργηθεί στον υπολογιστή της Διεύθυνσης.')
+
+
+def has_solver():
+    try:
+        import importlib.util
+        return importlib.util.find_spec('ortools') is not None
+    except Exception:
+        return False
+
+
 def solve(p, seconds=30, cancel=None, diagnose=True):
-    from ortools.sat.python import cp_model
+    try:
+        from ortools.sat.python import cp_model
+    except ImportError:
+        return dict(status='error', message=NO_SOLVER_MSG, reasons=[])
     import threading, copy
     p = copy.deepcopy(p)
     built = build(p, cp_model)
