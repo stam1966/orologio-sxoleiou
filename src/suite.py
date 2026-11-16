@@ -260,3 +260,108 @@ def refresh_launcher(app_root, programs=None):
         return True
     except OSError:
         return False
+
+
+# ---------- Κοινή χρήση στο δίκτυο (διαδρομή για τον 2ο υπολογιστή) ----------
+SHARE_NAME = 'SxolikesEfarmoges'
+_NO_WINDOW = 0x08000000
+
+
+def to_unc(path):
+    """Γράμμα δίσκου δικτύου (π.χ. Z:\\...) → διαδρομή δικτύου \\\\ΥΠΟΛΟΓΙΣΤΗΣ\\φάκελος\\...· αλλιώς ως έχει.
+    Οι αντιστοιχισμένοι δίσκοι δεν υπάρχουν πάντα (άλλος χρήστης, πριν συνδεθεί το δίκτυο), η διαδρομή δικτύου ναι."""
+    s = str(path).strip()
+    if os.name != 'nt' or len(s) < 2 or s[1] != ':':
+        return s
+    try:
+        import ctypes
+        from ctypes import wintypes
+        buf = ctypes.create_unicode_buffer(1024); n = wintypes.DWORD(1024)
+        if ctypes.windll.mpr.WNetGetConnectionW(s[:2], buf, ctypes.byref(n)) == 0 and buf.value:
+            return buf.value.rstrip('\\') + '\\' + s[2:].lstrip('\\/') if s[2:].strip('\\/') else buf.value
+    except (OSError, AttributeError):
+        pass
+    return s
+
+
+def _powershell(args, timeout=30):
+    import subprocess
+    exe = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32' / 'WindowsPowerShell' / 'v1.0' / 'powershell.exe'
+    r = subprocess.run([str(exe), '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'] + args, capture_output=True,
+                       timeout=timeout, creationflags=_NO_WINDOW if os.name == 'nt' else 0)
+    return r.stdout.decode('utf-8', 'replace')
+
+
+def local_shares():
+    """[(όνομα, φάκελος)] των κοινόχρηστων φακέλων αυτού του υπολογιστή (χωρίς τους διαχειριστικούς C$ κ.λπ.)."""
+    if os.name != 'nt':
+        return []
+    try:
+        out = _powershell(['-Command', '[Console]::OutputEncoding=[Text.Encoding]::UTF8; '
+                           'Get-CimInstance Win32_Share -Filter "Type=0" | ForEach-Object { $_.Name + [char]9 + $_.Path }'], 20)
+    except Exception:
+        return []
+    return [tuple(l.split('\t', 1)) for l in out.splitlines() if '\t' in l and l.split('\t', 1)[1].strip()]
+
+
+def network_info(root=None):
+    """Πώς φτάνει ο άλλος υπολογιστής στον φάκελο της σουίτας:
+    {'unc': διαδρομή δικτύου ή '', 'remote': ο φάκελος είναι ήδη σε άλλο υπολογιστή/NAS, 'local': είναι σε αυτόν τον υπολογιστή}."""
+    r = str(root if root is not None else machine()['root'])
+    if not r:
+        return {'unc': '', 'remote': False, 'local': False}
+    u = to_unc(r)
+    if u.startswith('\\\\'):
+        return {'unc': u, 'remote': True, 'local': False}
+    full = os.path.normcase(os.path.abspath(r)).rstrip('\\/')
+    best = None
+    for name, p in local_shares():
+        sp = os.path.normcase(os.path.abspath(p)).rstrip('\\/')
+        if (full == sp or full.startswith(sp + os.sep)) and (best is None or len(sp) > len(best[1])):
+            best = (name, sp)
+    if best:
+        rest = r.rstrip('\\/')[len(best[1]):].lstrip('\\/')
+        unc = '\\\\' + socket.gethostname() + '\\' + best[0] + ('\\' + rest if rest else '')
+        return {'unc': unc, 'remote': False, 'local': True}
+    return {'unc': '', 'remote': False, 'local': True}
+
+
+def make_network_share(app_root, root=None, wait=180):
+    """Κοινή χρήση του φακέλου της σουίτας στο δίκτυο με έγκριση διαχειριστή (UAC). → dict του netshare.ps1."""
+    if os.name != 'nt':
+        raise ValueError('Διαθέσιμο μόνο σε Windows.')
+    import ctypes
+    from ctypes import wintypes
+    r = str(root if root is not None else machine()['root'])
+    if not r or not Path(r).is_dir():
+        raise ValueError('Ο κοινός φάκελος δεν βρέθηκε σε αυτόν τον υπολογιστή.')
+    script = Path(app_root) / 'src' / 'netshare.ps1'
+    out = Path(tempfile.gettempdir()) / ('schoolapps_share_%s.json' % secrets.token_hex(4))
+
+    class SEI(ctypes.Structure):
+        _fields_ = [('cbSize', wintypes.DWORD), ('fMask', ctypes.c_ulong), ('hwnd', wintypes.HWND), ('lpVerb', wintypes.LPCWSTR),
+                    ('lpFile', wintypes.LPCWSTR), ('lpParameters', wintypes.LPCWSTR), ('lpDirectory', wintypes.LPCWSTR),
+                    ('nShow', ctypes.c_int), ('hInstApp', wintypes.HINSTANCE), ('lpIDList', ctypes.c_void_p),
+                    ('lpClass', wintypes.LPCWSTR), ('hkeyClass', wintypes.HKEY), ('dwHotKey', wintypes.DWORD),
+                    ('hIcon', wintypes.HANDLE), ('hProcess', wintypes.HANDLE)]
+    q = lambda s: '"' + str(s).replace('"', '') + '"'
+    sei = SEI(cbSize=ctypes.sizeof(SEI), fMask=0x40, lpVerb='runas',
+              lpFile=str(Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32' / 'WindowsPowerShell' / 'v1.0' / 'powershell.exe'),
+              lpParameters='-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File %s -Path %s -Name %s -Out %s'
+                           % (q(script), q(r.rstrip('\\')), SHARE_NAME, q(out)), nShow=0)
+    if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(sei)):
+        raise ValueError('Η κοινή χρήση χρειάζεται έγκριση διαχειριστή, που δεν δόθηκε.')
+    ctypes.windll.kernel32.WaitForSingleObject(sei.hProcess, int(wait * 1000))
+    ctypes.windll.kernel32.CloseHandle(sei.hProcess)
+    try:
+        res = json.loads(out.read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        raise ValueError('Η κοινή χρήση δεν ολοκληρώθηκε.')
+    finally:
+        try:
+            out.unlink()
+        except OSError:
+            pass
+    if not res.get('ok'):
+        raise ValueError('Η κοινή χρήση απέτυχε: ' + str(res.get('error') or '?'))
+    return res

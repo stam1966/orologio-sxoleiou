@@ -18,7 +18,7 @@ X86 = '--arch' in sys.argv and sys.argv[sys.argv.index('--arch') + 1] == 'x86'
 EMBED_URL = 'https://www.python.org/ftp/python/%s/python-%s-embed-%s.zip' % (PY_VERSION, PY_VERSION, 'win32' if X86 else 'amd64')
 APP = 'Orologio_Dimotikou'
 SRC_FILES = ['core.py', 'rules.py', 'outputs.py', 'server.py', 'updater.py', 'preflight.py', 'asc.py', 'pdfs.py', 'versions.py',
-             'backup.py', 'curricula.py', 'assistant.py', 'xlimport.py', 'rozimport.py', 'gymimport.py', 'subs.py', 'admin.py', 'forms.py', 'suite.py', 'exchange.py', 'launcher.ps1', 'index.html', 'manual.html', 'app.ico', 'demo_school.json']
+             'backup.py', 'curricula.py', 'assistant.py', 'xlimport.py', 'rozimport.py', 'gymimport.py', 'subs.py', 'admin.py', 'forms.py', 'suite.py', 'exchange.py', 'launcher.ps1', 'netshare.ps1', 'index.html', 'manual.html', 'app.ico', 'demo_school.json']
 SRC_DIRS = ['forms', 'vendor']   # πρότυπα εντύπων και βιβλιοθήκες τρίτων (openpyxl)
 TOP_FILES = ['START.cmd', 'START_KONSOLA.cmd', 'SYNTOMEFSI.cmd', 'CHECK.cmd', 'ΕΓΚΑΤΑΣΤΑΣΗ.cmd', 'ΑΠΕΓΚΑΤΑΣΤΑΣΗ.cmd', 'README_EL.txt', 'CHANGELOG.txt']
 

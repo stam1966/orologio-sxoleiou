@@ -500,7 +500,7 @@ function shareHtml(){let s=SUI(),pinf=`<label class="field"><span>PIN της Δ�
   <ul class="small"><li>Το βασικό πρόγραμμα το αλλάζει ένας υπολογιστής τη φορά· ο άλλος το βλέπει («μόνο προβολή»).</li><li>Οι αναπληρώσεις (απουσίες, καλύψεις) γίνονται και από τους δύο, ταυτόχρονα.</li><li>Ο ρόλος κάθε υπολογιστή (Διεύθυνση / Υποδιευθυντής) αλλάζει μόνο με το PIN της Διεύθυνσης.</li></ul>
   <div class="row"><button class="btn primary" data-shwiz="new">🆕 Νέος κοινός φάκελος (1ος υπολογιστής)</button><button class="btn" data-shwiz="join">🔗 Σύνδεση σε υπάρχοντα (2ος υπολογιστής)</button></div></div>`;
  return `<div class="section"><h2>Κοινή χρήση</h2>${s.cloud?`<p class="err small">⚠ Ο φάκελος συγχρονίζεται από ${esc(s.cloud==='onedrive'?'OneDrive':s.cloud)}. Δουλεύει, αλλά περιμένετε να ολοκληρωθεί ο συγχρονισμός πριν ανοίξετε την εφαρμογή στον άλλο υπολογιστή, αλλιώς μπορεί να χαθούν αλλαγές.</p>`:''}
-  <table class="tbl" style="width:auto"><tr><th>Κοινός φάκελος</th><td>${esc(s.root)}</td></tr><tr><th>Αυτός ο υπολογιστής</th><td>${esc(s.pc||'')}</td></tr>
+  <table class="tbl" style="width:auto"><tr><th>Κοινός φάκελος</th><td>${esc(s.root)}</td></tr><tr><th>Διαδρομή για τον άλλο υπολογιστή</th><td id="shunc"><span class="muted">Έλεγχος…</span></td></tr><tr><th>Αυτός ο υπολογιστής</th><td>${esc(s.pc||'')}</td></tr>
   <tr><th>Ρόλος</th><td><b>${esc(s.role_label||'')}</b>${s.wanted_role==='director'&&s.role!=='director'?' <span class="muted">(Διεύθυνση μετά το PIN)</span>':''}</td></tr>
   <tr><th>Βασικό πρόγραμμα</th><td>${s.readonly?roText():'✏ Το επεξεργάζεται αυτός ο υπολογιστής'}</td></tr></table>
   <h3>Αλλαγές</h3><div class="row" style="align-items:flex-end;flex-wrap:wrap">${pinf}
@@ -508,7 +508,20 @@ function shareHtml(){let s=SUI(),pinf=`<label class="field"><span>PIN της Δ�
   ${s.readonly==='locked'?'<button class="btn" data-shact="takeover">Ανάληψη επεξεργασίας</button>':''}
   <button class="btn" data-shact="pin">Αλλαγή PIN…</button><button class="btn" data-shact="disconnect">Τέλος κοινής χρήσης</button></div>
   <p class="muted small">Το «Τέλος κοινής χρήσης» κρατά αντίγραφο του έργου σε αυτόν τον υπολογιστή· τα δεδομένα του κοινού φακέλου μένουν ως έχουν.</p></div>`;}
-function bindShare(){$$('[data-shwiz]').forEach(b=>b.onclick=()=>shareWizard({mode:b.dataset.shwiz,root:'',role:b.dataset.shwiz==='new'?'director':'deputy'}));
+function copyText(t){try{navigator.clipboard.writeText(t).then(()=>toast('Αντιγράφηκε: '+t),()=>toast('Η αντιγραφή δεν έγινε· επιλέξτε τη διαδρομή και πατήστε Ctrl+C.',true));}catch(e){toast('Η αντιγραφή δεν έγινε.',true);}}
+const JOIN_HELP=`<ol class="small" style="margin:.4em 0 0 1.2em;padding:0"><li>Στον άλλο υπολογιστή ανοίξτε την Εξερεύνηση αρχείων, γράψτε τη διαδρομή στη γραμμή διευθύνσεων και πατήστε Enter. Αν ζητηθούν, δώστε <b>όνομα χρήστη και κωδικό αυτού του υπολογιστή</b> και τσεκάρετε «Απομνημόνευση διαπιστευτηρίων».</li><li>Μετά, στον άλλο υπολογιστή: Ωρολόγιο → Ρυθμίσεις εφαρμογής → Κοινή χρήση → «Σύνδεση σε υπάρχοντα» και επικολλήστε τη διαδρομή (ή στο Setup της σουίτας: «σύνδεση σε κοινό φάκελο»). Το ίδιο και στις Εφημερίες → Ρυθμίσεις → Αποθήκευση.</li></ol>`;
+function uncHtml(n){return `<code style="user-select:all">${esc(n.unc)}</code> <button class="btn small" data-copyunc="${esc(n.unc)}">📋 Αντιγραφή</button>`;}
+async function loadNet(){let td=$('#shunc');if(!td)return;let n;try{n=await(await api('suite/netinfo',{})).json();}catch(e){td.innerHTML='<span class="muted">—</span>';return;}td=$('#shunc');if(!td)return;
+ if(n.unc)td.innerHTML=uncHtml(n)+(n.local?' <span class="muted small">(ο φάκελος είναι σε αυτόν τον υπολογιστή)</span>':'');
+ else if(n.local)td.innerHTML=`<span class="err small">Ο φάκελος είναι σε αυτόν τον υπολογιστή και δεν είναι κοινόχρηστος· ο άλλος υπολογιστής δεν τον βλέπει.</span> `+(SUI().role==='director'?'<button class="btn small primary" data-netshare>🌐 Κοινή χρήση στο δίκτυο…</button>':'');
+ else td.innerHTML='<span class="muted">—</span>';
+ $$('[data-copyunc]').forEach(b=>b.onclick=()=>copyText(b.dataset.copyunc));let ns=$('[data-netshare]');if(ns)ns.onclick=netShare;}
+async function netShare(){if(!await confirmBox('Ο φάκελος «'+esc(SUI().root)+'» θα γίνει κοινόχρηστος στο δίκτυο του σχολείου, ώστε να τον βλέπει ο δεύτερος υπολογιστής. Τα Windows θα ζητήσουν <b>έγκριση διαχειριστή</b>. Πρόσβαση έχουν μόνο χρήστες με λογαριασμό και κωδικό σε αυτόν τον υπολογιστή.','Κοινή χρήση'))return;
+ toast('Περιμένετε την έγκριση των Windows…');let n;try{n=await(await api('suite/netshare',{})).json();}catch(e){toast(e.message,true);return;}
+ let warn=(n.public&&n.public.length?`<p class="err small">⚠ Το δίκτυο «${esc(n.public.join(', '))}» είναι δηλωμένο ως <b>Δημόσιο</b>, οπότε τα Windows κρύβουν τους κοινόχρηστους φακέλους. Αλλάξτε το σε <b>Ιδιωτικό</b>: Ρυθμίσεις → Δίκτυο και Internet → Ethernet ή Wi-Fi → Τύπος προφίλ δικτύου.</p>`:'')+(n.firewall?`<p class="muted small">Τείχος προστασίας: ${esc(n.firewall)}</p>`:'');
+ modal('Ο φάκελος είναι κοινόχρηστος',`<div style="max-width:620px"><p>Διαδρομή για τον άλλο υπολογιστή:</p><p style="font-size:1.15em">${uncHtml(n)}</p>${warn}${JOIN_HELP}</div>`,{cancel:'Κλείσιμο'});
+ $$('[data-copyunc]').forEach(b=>b.onclick=()=>copyText(b.dataset.copyunc));loadNet();}
+function bindShare(){if(SUI().shared)loadNet();$$('[data-shwiz]').forEach(b=>b.onclick=()=>shareWizard({mode:b.dataset.shwiz,root:'',role:b.dataset.shwiz==='new'?'director':'deputy'}));
  let pin=()=>($('#shpin')||{}).value||'',post=async(k,body,msg)=>{try{state=await(await api('suite/'+k,body)).json();render();if(msg)toast(msg);}catch(e){toast(e.message,true);}};
  $$('[data-shact]').forEach(b=>b.onclick=async()=>{let k=b.dataset.shact;
   if(k==='deputy'||k==='director')return post('role',{role:k,pin:pin()},'Ο ρόλος άλλαξε σε '+(k==='director'?'Διεύθυνση':'Υποδιευθυντής'));
@@ -523,7 +536,8 @@ function shareWizard(w){let isNew=w.mode==='new';
   <div class="row"><label class="field"><span>Ρόλος αυτού του υπολογιστή</span><select id="shrole"><option value="director" ${w.role==='director'?'selected':''}>Διεύθυνση (αλλάζει το πρόγραμμα)</option><option value="deputy" ${w.role==='deputy'?'selected':''}>Υποδιευθυντής (προβολή, αναπληρώσεις)</option></select></label></div>
   <div id="shpins"></div></div>`,{ok:isNew?'Δημιουργία':'Σύνδεση',onOk:async()=>{let role=$('#shrole').value,pin=($('#shp1')||{}).value||'';
    if(isNew&&role==='director'&&pin!==(($('#shp2')||{}).value||'')){toast('Τα δύο PIN διαφέρουν.',true);return false;}
-   state=await(await api('suite/connect',{root:$('#shroot').value.trim(),create:isNew,role,pin})).json();render();toast(isNew?'Ο κοινός φάκελος δημιουργήθηκε':'Ο υπολογιστής συνδέθηκε στον κοινό φάκελο');startSync();}});
+   state=await(await api('suite/connect',{root:$('#shroot').value.trim(),create:isNew,role,pin})).json();render();toast(isNew?'Ο κοινός φάκελος δημιουργήθηκε':'Ο υπολογιστής συνδέθηκε στον κοινό φάκελο');startSync();
+   if(isNew)setTimeout(async()=>{try{let n=await(await api('suite/netinfo',{})).json();if(n.local&&!n.unc&&SUI().role==='director')netShare();}catch(e){}},300);}});
  let pins=()=>{let r=$('#shrole').value;w.role=r;$('#shpins').innerHTML=r!=='director'?'<p class="muted small">Ο Υποδιευθυντής δεν χρειάζεται PIN.</p>':isNew?`<div class="row"><label class="field"><span>Νέο PIN της Διεύθυνσης (4–12 ψηφία)</span><input id="shp1" type="password" inputmode="numeric" maxlength="12"></label><label class="field"><span>Ξανά το PIN</span><input id="shp2" type="password" inputmode="numeric" maxlength="12"></label></div><p class="muted small">Το PIN ζητείται μόνο για αλλαγή ρόλου υπολογιστή, όχι στην καθημερινή χρήση. Αν υπάρχει ήδη PIN στον φάκελο, γράψτε εκείνο.</p>`:`<label class="field"><span>PIN της Διεύθυνσης</span><input id="shp1" type="password" inputmode="numeric" maxlength="12"></label>`;};
  $('#shrole').onchange=pins;pins();
  $('#shbrowse').onclick=()=>{w.root=$('#shroot').value;w.role=$('#shrole').value;filePicker({title:'Επιλογή φακέλου',folder:true,start:w.root,onPick:(folder)=>{w.root=folder;shareWizard(w);}});};}

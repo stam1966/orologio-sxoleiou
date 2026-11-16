@@ -77,8 +77,13 @@ def suite_action(kind, req):
     if kind == 'info':
         pass
     elif kind == 'connect':      # φάκελος σουίτας: νέος (δημιουργείται) ή υπάρχων (σύνδεση 2ου υπολογιστή)
-        root = Path(str(req.get('root', '')).strip()).expanduser()
-        if not str(root) or not root.is_dir():
+        raw = suite.to_unc(str(req.get('root', '')).strip().strip('"'))
+        root = Path(raw).expanduser()
+        if not raw or not root.is_dir():
+            if raw.startswith('\\\\'):
+                raise ValueError('Ο φάκελος δικτύου «' + raw + '» δεν είναι προσβάσιμος από αυτόν τον υπολογιστή. Ανοίξτε τον πρώτα από την '
+                                 'Εξερεύνηση αρχείων: αν ζητηθούν, δώστε το όνομα χρήστη και τον κωδικό του πρώτου υπολογιστή και '
+                                 'τσεκάρετε «Απομνημόνευση διαπιστευτηρίων». Βεβαιωθείτε επίσης ότι ο πρώτος υπολογιστής είναι ανοιχτός.')
             raise ValueError('Διαλέξτε υπάρχοντα φάκελο.')
         if not (root / suite.COMMON).exists() and (root / 'Σχολικές Εφαρμογές' / suite.COMMON).exists():
             root = root / 'Σχολικές Εφαρμογές'          # δείξατε τον γονικό φάκελο μιας υπάρχουσας σουίτας
@@ -130,6 +135,14 @@ def suite_action(kind, req):
             raise ValueError('Οι «Εφημερίες Εκπαιδευτικών» δεν είναι εγκατεστημένες σε αυτόν τον υπολογιστή.')
         subprocess.Popen([str(exe)], cwd=str(exe.parent), close_fds=True)
         return json.dumps({'ok': True})
+    elif kind == 'netinfo':       # η διαδρομή δικτύου για τον 2ο υπολογιστή
+        return json.dumps(suite.network_info(), ensure_ascii=False)
+    elif kind == 'netshare':      # κοινή χρήση του φακέλου στο δίκτυο (έγκριση διαχειριστή)
+        if suite.effective_role() != 'director':
+            raise ValueError('Την κοινή χρήση στο δίκτυο την κάνει ο υπολογιστής της Διεύθυνσης.')
+        res = suite.make_network_share(ROOT)
+        log('suite netshare', res.get('unc'))
+        return json.dumps({**suite.network_info(), 'firewall': res.get('firewall', ''), 'public': res.get('public') or []}, ensure_ascii=False)
     elif kind == 'takeover':
         if suite.effective_role() != 'director':
             raise ValueError('Μόνο ο υπολογιστής της Διεύθυνσης αλλάζει το πρόγραμμα.')
