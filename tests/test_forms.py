@@ -291,6 +291,19 @@ class Prints(unittest.TestCase):
         vals = [c.value for row in wb.worksheets[0].iter_rows() for c in row]
         self.assertTrue(any(isinstance(v, str) and 'ΛΩΡΙΔΑ - Συνολικό' in v for v in vals)); self.assertIn('Πρωινή Ζώνη / Ολοήμερο', vals)
 
+    def test_poster_extra_on_own_page_and_director_poster(self):
+        import outputs
+        p = school()
+        h = outputs.report(p, {'kind': 'teachers', 'mode': 'poster', 'pdf': True})
+        self.assertEqual(h.count('<section'), 2)                      # Πρωινή Ζώνη / Ολοήμερο σε δεύτερη σελίδα
+        self.assertIn('Αφίσα τοίχου — Εκπαιδευτικοί — Πρωινή Ζώνη / Ολοήμερο', h)
+        pg = outputs.pages(p, {'kind': 'teachers', 'mode': 'poster_all'})[0]
+        self.assertEqual(pg['periods'], list(range(10))); self.assertEqual(pg['extra'], []); self.assertEqual(pg['zone'], [0, 7, 8, 9])
+        h = outputs.report(p, {'kind': 'teachers', 'mode': 'poster_all'})
+        self.assertEqual(h.count('<table class="matrix'), 1); self.assertIn('Αφίσα Διεύθυνσης', h); self.assertIn('pn z', h)
+        wb = openpyxl.load_workbook(io.BytesIO(outputs.export_xlsx(p, {'kind': 'teachers', 'mode': 'poster_all'})))
+        self.assertTrue(wb.worksheets[0].title.startswith('Διεύθυνση'))
+
     def test_needs_print(self):
         import outputs
         p = school(); pg = outputs.pages(p, {'mode': 'needs'})[0]

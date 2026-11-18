@@ -8,6 +8,7 @@ PALETTE = ['A8D5F5', 'F8C59E', 'B8DFA4', 'D0B9EE', 'F5AEBC', '9CDDD2', 'E8D58D',
 LABELS = {'teachers': 'Εκπαιδευτικοί', 'classes': 'Τμήματα', 'rooms': 'Αίθουσες', 'subjects': 'Μαθήματα'}
 SINGULAR = {'teachers': 'εκπαιδευτικού', 'classes': 'τμήματος', 'rooms': 'αίθουσας', 'subjects': 'μαθήματος'}
 MODES = {'individual': 'Ωρολόγιο για κάθε εγγραφή', 'overview': 'Συνολικό ωρολόγιο', 'poster': 'Αφίσα τοίχου (A3)',
+         'poster_all': 'Αφίσα Διεύθυνσης (όλες οι ώρες σε έναν πίνακα)',
          'withtable': 'Ωρολόγιο με πίνακα αναθέσεων', 'assignments': 'Πίνακας μαθημάτων', 'distribution': 'Επισκόπηση κατανομής',
          'fairness': 'Δικαιοσύνη κατανομής', 'framework': 'Θεσμικό πλαίσιο (ώρες μαθημάτων, ωράριο εκπαιδευτικών)',
          'subs_day': 'Αναπληρώσεις ημέρας', 'subs_stats': 'Αναπληρώσεις ανά εκπαιδευτικό', 'needs': 'Προϋπολογισμός αναγκών'}
@@ -121,8 +122,9 @@ def week_page(p, kind, ent, opts):
     return dict(type='week', heading=opts.get('title') or p.get('title') or 'Ωρολόγιο Πρόγραμμα Διδασκαλίας', name=ent['name'], periods=periods, cells=cells)
 
 
-def matrix_page(p, kind, ents, opts, poster=False):
-    """Συνολικό: γραμμές = εγγραφές, στήλες = ημέρες × ώρες."""
+def matrix_page(p, kind, ents, opts, poster=False, combined=False):
+    """Συνολικό: γραμμές = εγγραφές, στήλες = ημέρες × ώρες.
+    combined: όλες οι ώρες (Πρωινή Ζώνη, κύριο ωράριο, Ολοήμερο) σε έναν πίνακα — αφίσα της Διεύθυνσης."""
     periods = used_periods(p, kind, [x['id'] for x in p[kind]]) if opts.get('used', True) else list(range(len(p['periods'])))
     rows = []
     for ent in ents:
@@ -140,6 +142,9 @@ def matrix_page(p, kind, ents, opts, poster=False):
         rows.append(dict(name=ent['name'], color=teacher_color(p, ent['id']) if kind == 'teachers' else None, cells=cells))
     title = ('Αφίσα τοίχου' if poster else 'Συνολικό ωρολόγιο') + ' — ' + LABELS[kind]
     main, extra = split_periods(p, periods)
+    if combined:
+        return dict(type='matrix', heading=opts.get('title') or p.get('title') or 'Ωρολόγιο Πρόγραμμα', name='Αφίσα Διεύθυνσης — ' + LABELS[kind],
+                    periods=list(periods), extra=[], zone=extra, rows=rows, poster=False, combined=True)
     return dict(type='matrix', heading=opts.get('title') or p.get('title') or 'Ωρολόγιο Πρόγραμμα', name=title, periods=main, extra=extra, rows=rows, poster=poster)
 
 
@@ -334,7 +339,7 @@ def pages(p, opts):
     kind = opts.get('kind', 'teachers'); mode = opts.get('mode', 'individual')
     if kind not in LABELS or mode not in MODES:
         raise ValueError('Μη έγκυρη αναφορά.')
-    if kind == 'teachers' and mode in ('individual', 'overview', 'poster', 'withtable'):
+    if kind == 'teachers' and mode in ('individual', 'overview', 'poster', 'poster_all', 'withtable'):
         import admin
         p = admin.with_specials(p)   # ειδικά προγράμματα στα ωρολόγια/αφίσες εκπαιδευτικών
     ents = [x for x in p[kind] if not opts.get('entity') or x['id'] == opts['entity']]
@@ -360,6 +365,8 @@ def pages(p, opts):
         return subs.stats_pages(p)
     if mode in ('overview', 'poster'):
         return [matrix_page(p, kind, ents, opts, mode == 'poster')]
+    if mode == 'poster_all':
+        return [matrix_page(p, kind, ents, opts, combined=True)]
     out = []
     for x in ents:
         out.append(week_page(p, kind, x, opts))
@@ -368,8 +375,8 @@ def pages(p, opts):
     return out
 
 
-def matrix_html(p, per, rows, poster, colors, esc):
-    head = '<thead><tr><th class="corner" rowspan="2"></th>' + ''.join('<th class="day dsep" colspan="' + str(len(per)) + '">' + esc(d) + '</th>' for d in p['days']) + '</tr><tr>' + ''.join('<th class="pn' + (' dsep' if k == 0 else '') + '">' + esc(p['periods'][i]['name']) + '</th>' for d in range(5) for k, i in enumerate(per)) + '</tr></thead>'
+def matrix_html(p, per, rows, poster, colors, esc, zone=(), combined=False):
+    head = '<thead><tr><th class="corner" rowspan="2"></th>' + ''.join('<th class="day dsep" colspan="' + str(len(per)) + '">' + esc(d) + '</th>' for d in p['days']) + '</tr><tr>' + ''.join('<th class="pn' + (' dsep' if k == 0 else '') + (' z' if i in zone else '') + '">' + esc(p['periods'][i]['name']) + '</th>' for d in range(5) for k, i in enumerate(per)) + '</tr></thead>'
     body_rows = []
     for r in rows:
         nm = '<th class="rn">' + (('<i class="sw" style="background:#' + r['color'] + '"></i>') if colors and r['color'] else '') + esc(r['name']) + '</th>'
@@ -382,7 +389,7 @@ def matrix_html(p, per, rows, poster, colors, esc):
                 st = ' style="background:#' + c['color'] + ';color:#' + fg_for(c['color']) + '"' if colors and c['color'] else ''
                 cells += '<td' + cls + st + '><b>' + esc(c['top']) + '</b><i>' + esc(c['bottom']) + '</i></td>'
         body_rows.append('<tr>' + nm + cells + '</tr>')
-    return '<table class="matrix' + (' poster' if poster else '') + '">' + head + '<tbody>' + ''.join(body_rows) + '</tbody></table>'
+    return '<table class="matrix' + (' poster' if poster else '') + (' all' if combined else '') + '">' + head + '<tbody>' + ''.join(body_rows) + '</tbody></table>'
 
 
 # ------------------------------------------------------------------ HTML
@@ -418,10 +425,16 @@ def report(p, opts):
                 rows.append(tr + '</tr>')
             content = '<table class="week"><thead><tr><th class="corner"></th>' + ''.join('<th class="day">' + esc(d) + '</th>' for d in p['days']) + '</tr></thead><tbody>' + ''.join(rows) + '</tbody></table>'
         elif pg['type'] == 'matrix':
-            content = matrix_html(p, pg['periods'], pg['rows'], pg['poster'], colors, esc)
+            content = matrix_html(p, pg['periods'], pg['rows'], pg['poster'], colors, esc, pg.get('zone') or (), pg.get('combined'))
             ex = pg.get('extra') or []
             rows_ex = [r for r in pg['rows'] if any((d, i) in r['cells'] for d in range(5) for i in ex)]
-            if ex and rows_ex:
+            if ex and rows_ex and pg['poster']:
+                # Αφίσα: Πρωινή Ζώνη / Ολοήμερο σε δική της σελίδα (δεύτερη σελίδα στο PDF και στην εκτύπωση)
+                foot = '<div class="foot">Ωρολόγιο Πρόγραμμα · ' + stamp + '</div>'
+                body.append('<section>' + top + band + content + foot + '</section>')
+                band = '<div class="band">' + esc(((pg['heading'] + ' - ') if pg['heading'] else '') + pg['name'] + ' — ' + extra_title(p)) + '</div>'
+                content = matrix_html(p, ex, rows_ex, True, colors, esc)
+            elif ex and rows_ex:
                 content += '<h3 class="extra">' + esc(extra_title(p)) + '</h3>' + matrix_html(p, ex, rows_ex, pg['poster'], colors, esc)
         else:
             cs = pg.get('colors'); fl = pg.get('flags')
@@ -441,7 +454,8 @@ def report(p, opts):
     .week td{height:4.2em;padding:.25em}.week td b{display:block;font-size:1.15em}.week td i{display:block;font-size:.9em;margin-top:.35em}
     .matrix{font-size:.72em}.matrix th.rn{width:11%%;text-align:left;padding:.2em .4em;font-size:1.05em;background:#f4f6f8;color:#1f2a36}.matrix th.day{font-size:1.2em;padding:.25em}.matrix th.pn{background:#%(per)s;color:#%(per_fg)s;font-weight:600;padding:.15em 0}
     .matrix td{padding:.1em 0;height:2.6em;font-size:.95em;line-height:1.15;white-space:nowrap;overflow:hidden;overflow-wrap:normal}.matrix td b{display:block}.matrix td i{display:block;font-style:normal;font-size:.85em;opacity:.85}
-    .matrix.poster{font-size:1em}.matrix.poster td{height:3.2em}.matrix.poster td b{font-size:1.15em}.dsep{border-left:2.5px solid #%(grid)s!important}
+    .matrix.poster{font-size:1em}.matrix.poster td{height:3.2em}.matrix.poster td b{font-size:1.15em}
+    .matrix.all{font-size:.9em}.matrix.all td{height:3.4em}.matrix.all th.rn{width:10%%}.matrix th.pn.z{background:#%(day)s;color:#%(day_fg)s}.dsep{border-left:2.5px solid #%(grid)s!important}
     .sw{display:inline-block;width:.9em;height:.9em;border-radius:2px;margin-right:.35em;vertical-align:-.1em;border:1px solid #0003}
     .plain th{background:#%(per)s;color:#%(per_fg)s;padding:.4em}.plain th:first-child{width:18%%}.plain.few{table-layout:auto;width:auto;min-width:55%%}.plain.few th:first-child{width:auto}.plain td{padding:.35em;white-space:pre-line}.plain td:first-child{text-align:left;font-weight:600}
     .hi{background:#FBE1DC!important;color:#8E2A1D;font-weight:700}.note{font-size:.9em;color:#555;margin:.3em 0 .6em}.foot{text-align:right;font-size:.8em;color:#667;margin-top:.4em}h3{margin:.8em 0 .4em}h3.extra{margin:1.1em 0 .4em;font-size:1.3em}
@@ -627,7 +641,7 @@ def xlsx_pages(x, p, pgs, opts):
             rows_ex = [rw for rw in pg['rows'] if any((d, i) in rw['cells'] for d in range(5) for i in ex)]
             if ex and rows_ex:
                 blocks.append((ex, rows_ex, extra_title(p)))
-            sh = x.sheet(pg['name'].replace('Συνολικό ωρολόγιο', 'Συνολικό').replace('Αφίσα τοίχου', 'Αφίσα'), landscape=True, a3=True)
+            sh = x.sheet(pg['name'].replace('Συνολικό ωρολόγιο', 'Συνολικό').replace('Αφίσα τοίχου', 'Αφίσα').replace('Αφίσα Διεύθυνσης', 'Διεύθυνση')[:31], landscape=True, a3=True)
             ncols = 1 + 5 * max(len(b[0]) for b in blocks)
             sh['widths'] = {1: 24 if poster else 20, **{c: (7 if poster else 5.5) for c in range(2, ncols + 1)}}
             r = 1
