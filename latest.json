@@ -1,0 +1,7 @@
+{
+  "app": "orologio-dimotikou",
+  "version": "0.39.1-beta",
+  "file": "Orologio_Enimerosi.zip",
+  "sha256": "4b6ed2b3d7a25a26b003cf07e185deb6f2cebdae34456ddbb3178d8e62141e84",
+  "notes": "**Νέα εγκατάσταση:** κατεβάστε το `Orologio_Sxoleiou_Setup.exe` και ανοίξτε το.\r\n\r\nΜόνιμος σύνδεσμος λήψης (πάντα η τελευταία έκδοση): https://github.com/stam1966/orologio-sxoleiou/releases/latest/download/Orologio_Sxoleiou_Setup.exe\r\n\r\n**Ενημέρωση υπάρχουσας εγκατάστασης:** μέσα στην εφαρμογή «Σχολείο & ωράριο → Ενημέρωση» (ή σύρετε το `Orologio_Enimerosi_….zip` στο παράθυρο).\r\n\r\nΜόνιμος σύνδεσμος αρχείου ενημέρωσης (πάντα η τελευταία έκδοση): https://github.com/stam1966/orologio-sxoleiou/releases/latest/download/Orologio_Enimerosi.zip\r\n\r\n[Code signing policy](https://github.com/stam1966/orologio-sxoleiou/blob/main/CODE_SIGNING_POLICY.md) · Άδεια: GPL-3.0 · Ιδέα και σχεδιασμός: Σταμάτης Κοκολόγος, εκπαιδευτικός ΠΕ70, 22ο Δημοτικό Σχολείο Λαμίας\r\n\r\n```\r\n﻿ΩΡΟΛΟΓΙΟ ΣΧΟΛΕΙΟΥ — 0.39.1 beta\r\n\r\n• Αφίσα Διεύθυνσης σε Excel με νέα μορφή: σχολείο και σχολικό έτος\r\n  στην πρώτη γραμμή, μεγάλος τίτλος, ημέρες και ώρες με γκρι φόντο,\r\n  έντονα περιγράμματα ανά ημέρα, ασπρόμαυρα κελιά και γκρι τα κενά.\r\n  Τυπώνεται σε A3 οριζόντιο, σε ένα πλάτος σελίδας.\r\n\r\n```\r\n"
+}
