@@ -302,7 +302,11 @@ class Prints(unittest.TestCase):
         h = outputs.report(p, {'kind': 'teachers', 'mode': 'poster_all'})
         self.assertEqual(h.count('<table class="matrix'), 1); self.assertIn('Αφίσα Διεύθυνσης', h); self.assertIn('pn z', h)
         wb = openpyxl.load_workbook(io.BytesIO(outputs.export_xlsx(p, {'kind': 'teachers', 'mode': 'poster_all'})))
-        self.assertTrue(wb.worksheets[0].title.startswith('Διεύθυνση'))
+        ws = wb.worksheets[0]
+        self.assertTrue(ws.title.startswith('Διεύθυνση')); self.assertEqual(ws.freeze_panes, 'B5')
+        self.assertEqual(ws.cell(4, 2).value, p['periods'][0]['name']); self.assertEqual(ws.cell(3, 2).border.left.style, 'thick')
+        empty = [c for row in ws.iter_rows(min_row=5, min_col=2) for c in row if c.value is None]
+        self.assertTrue(empty and all(c.fill.fgColor.rgb == 'FFD9D9D9' for c in empty))   # γκρι τα κενά
 
     def test_needs_print(self):
         import outputs

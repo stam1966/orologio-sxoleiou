@@ -489,7 +489,7 @@ class Xlsx:
         base = title; k = 2
         while any(s['title'] == title for s in self.sheets):
             suffix = ' (' + str(k) + ')'; title = base[:31 - len(suffix)] + suffix; k += 1
-        sh = dict(title=title, cells={}, merges=[], widths={}, heights={}, landscape=landscape, a3=a3, freeze=freeze)
+        sh = dict(title=title, cells={}, merges=[], widths={}, heights={}, landscape=landscape, a3=a3, freeze=freeze, margins=(0.3, 0.35))
         self.sheets.append(sh); return sh
 
     @staticmethod
@@ -547,7 +547,8 @@ class Xlsx:
                     for r1, c1, r2, c2 in sh['merges']:
                         ET.SubElement(mg, 'mergeCell', ref=self.col(c1) + str(r1) + ':' + self.col(c2) + str(r2))
                 ET.SubElement(w, 'printOptions', horizontalCentered='1')
-                ET.SubElement(w, 'pageMargins', left='0.3', right='0.3', top='0.35', bottom='0.35', header='0.2', footer='0.2')
+                mh, mv = sh.get('margins', (0.3, 0.35))
+                ET.SubElement(w, 'pageMargins', left=str(mh), right=str(mh), top=str(mv), bottom=str(mv), header='0.2', footer='0.2')
                 ET.SubElement(w, 'pageSetup', paperSize='8' if sh['a3'] else '9', orientation='landscape' if sh['landscape'] else 'portrait', fitToWidth='1', fitToHeight='0')
                 z.writestr('xl/worksheets/sheet' + str(idx) + '.xml', xml(w))
             ET.SubElement(rels, 'Relationship', Id='rIdS', Type=rel + '/styles', Target='styles.xml')
@@ -580,10 +581,10 @@ class Xlsx:
         be = ET.SubElement(st, 'borders', count=str(len(borders)))
         for style, color in borders:
             b = ET.SubElement(be, 'border')
-            for side in ('left', 'right', 'top', 'bottom'):
-                e = ET.SubElement(b, side)
-                if style:
-                    e.set('style', style); ET.SubElement(e, 'color', rgb='FF' + color)
+            for k, side in enumerate(('left', 'right', 'top', 'bottom')):
+                e = ET.SubElement(b, side); sst = style[k] if isinstance(style, tuple) else style
+                if sst:
+                    e.set('style', sst); ET.SubElement(e, 'color', rgb='FF' + color)
             ET.SubElement(b, 'diagonal')
         ET.SubElement(ET.SubElement(st, 'cellStyleXfs', count='1'), 'xf', numFmtId='0', fontId='0', fillId='0', borderId='0')
         xe = ET.SubElement(st, 'cellXfs', count=str(len(self.style_list)))
@@ -635,6 +636,8 @@ def xlsx_pages(x, p, pgs, opts):
                 if c['span'] > 1:
                     sh['merges'].append((rr, d + 2, rr + c['span'] - 1, d + 2))
                     for k in range(1, c['span']): sh['cells'][rr + k, d + 2] = ('', s)
+        elif pg['type'] == 'matrix' and pg.get('combined'):
+            xlsx_director(x, p, pg, school, year)
         elif pg['type'] == 'matrix':
             poster = pg['poster']; ex = pg.get('extra') or []
             blocks = [(pg['periods'], pg['rows'], '')]
@@ -694,6 +697,43 @@ def xlsx_pages(x, p, pgs, opts):
                     val = int(v) if isinstance(v, str) and v.isdigit() else v
                     sh['cells'][ri, ci] = (val, x.style(dict(size=10, bold=ci == 1, h='left' if ci == 1 else 'center', box=True, fill=fill, fg=fg_for(fill) if fill else '1F2A36')))
                 sh['heights'][ri] = 16 * max(1, max(str(v).count('\n') + 1 for v in row)) + 4
+
+
+def xlsx_director(x, p, pg, school, year):
+    """Αφίσα Διεύθυνσης σε Excel: όλες οι ώρες σε έναν πίνακα, ασπρόμαυρη, γκρι τα κενά,
+    έντονα περιγράμματα ανά ημέρα, A3 οριζόντιο σε ένα πλάτος σελίδας."""
+    per = pg['periods']; n = len(per); ncols = 1 + 5 * n; last = len(pg['rows'])
+    sh = x.sheet(pg['name'].replace('Αφίσα Διεύθυνσης', 'Διεύθυνση'), landscape=True, a3=True, freeze=(4, 1))
+    sh['margins'] = (0.2, 0.35)
+    sh['widths'] = {1: 20, **{c: 5.43 for c in range(2, ncols + 1)}}
+    half = ncols // 2 + 1
+    sh['cells'][1, 1] = (school, x.style(dict(size=20, bold=True, h='left')))
+    sh['cells'][1, half] = (year, x.style(dict(size=20, bold=True, h='right')))
+    sh['merges'] += [(1, 1, 1, half - 1), (1, half, 1, ncols)]; sh['heights'][1] = 33
+    sh['cells'][2, 1] = (pg.get('heading') or '', x.style(dict(size=26, bold=True, fg='000000')))
+    sh['merges'].append((2, 1, 2, ncols)); sh['heights'][2] = 35.25
+    sh['merges'].append((3, 1, 4, 1))
+    for d in range(5):
+        c0 = 2 + d * n
+        for k, i in enumerate(per):
+            edge = ('thick' if k == 0 else None, 'thick' if k == n - 1 else None)
+            sh['cells'][3, c0 + k] = (p['days'][d] if k == 0 else '', x.style(dict(size=18, bold=True, fill='F2F2F2', fg='000000', border=edge + ('thick', 'medium'))))
+            sh['cells'][4, c0 + k] = (p['periods'][i]['name'], x.style(dict(size=14, bold=True, fill='F2F2F2', fg='000000',
+                                                                              border=(edge[0] or 'thin', edge[1] or 'thin', 'medium', 'medium'))))
+        sh['merges'].append((3, c0, 3, c0 + n - 1))
+    sh['heights'][3] = 27; sh['heights'][4] = 24.75
+    for ri, row in enumerate(pg['rows']):
+        r = 5 + ri; top = 'thick' if ri == 0 else 'thin'; bottom = 'thick' if ri == last - 1 else 'thin'
+        sh['cells'][r, 1] = (row['name'], x.style(dict(size=12, bold=True, h='left', fill='F4F6F8', border=('thick', 'thick', top, bottom))))
+        for d in range(5):
+            for k, i in enumerate(per):
+                c = row['cells'].get((d, i))
+                b = ('thick' if k == 0 else 'thin', 'thick' if k == n - 1 else 'thin', top, bottom)
+                if c:
+                    sh['cells'][r, 2 + d * n + k] = (c['top'] + ('\n' + c['bottom'] if c['bottom'] else ''), x.style(dict(size=11, bold=True, fg='000000', border=b)))
+                else:
+                    sh['cells'][r, 2 + d * n + k] = ('', x.style(dict(size=11, fill='D9D9D9', border=b)))
+        sh['heights'][r] = 30
 
 
 def export_xlsx(p, opts=None):
