@@ -15,6 +15,8 @@ EXTRA_KINDS = ['ενισχυτική', 'παράλληλη', 'γραμματει
 # σε ώρες του προγράμματος αφού αυτό βγει, χωρίς να μετακινείται τίποτα (ο solver τα αγνοεί).
 SPECIAL_KINDS = {'entaxi': ('Τμήμα Ένταξης', 'ΕΝΤΑΞΗ'), 'zep': ('Τάξη Υποδοχής ΖΕΠ', 'ΖΕΠ'), 'enisx': ('Ενισχυτική διδασκαλία', 'ΕΝΙΣΧΥΤΙΚΗ'),
                  'parall': ('Παράλληλη στήριξη', 'ΠΑΡΑΛΛΗΛΗ'), 'gramm': ('Γραμματειακή υποστήριξη', 'ΓΡΑΜΜΑΤΕΙΑΚΗ')}
+# Προεπιλεγμένη συντομογραφία στις αφίσες (αλλάζει στο «Ειδικά προγράμματα → Στην αφίσα»)
+SPECIAL_POSTER = {'entaxi': 'ΕΝΤ', 'zep': 'ΖΕΠ', 'enisx': 'ΕΝΙΣΧ', 'parall': 'ΠΑΡ', 'gramm': 'ΓΡΑΜ'}
 SPECIAL_LAST = ('entaxi', 'zep', 'parall')   # όσοι έχουν μόνο αυτά πάνε στο τέλος του εντύπου
 # Κλάδοι του «Προϋπολογισμού αναγκών», με τη σειρά του προτύπου. Ο πρώτος κωδικός είναι αυτός του εντύπου.
 KLADOI = [('ΠΕ70', 'Δασκάλων', ()), ('ΠΕ08', 'Καλλιτεχνικών', ()), ('ΠΕ79.01', 'Μουσικής', ('ΠΕ16', 'ΠΕ79')),
@@ -291,8 +293,11 @@ def with_specials(p):
     if not sp:
         return p
     q = dict(p); q['subjects'] = list(p['subjects']); q['lessons'] = list(p['lessons']); q['events'] = list(p['events'])
+    ps = (p.get('admin') or {}).get('special_poster') or {}
     for k, (label, short) in SPECIAL_KINDS.items():
-        q['subjects'].append({'id': '__sp_' + k, 'name': short, 'short': short[:5]})
+        cfg = ps.get(k) or {}
+        q['subjects'].append({'id': '__sp_' + k, 'name': short, 'short': (cfg.get('short') or SPECIAL_POSTER[k])[:8],
+                              'poster': (cfg.get('short') or SPECIAL_POSTER[k])[:8], 'poster_class': cfg.get('cls', True)})
     for x in sp:
         lid = '__spl_' + x['id']
         q['lessons'].append({'id': lid, 'subject': '__sp_' + x['kind'], 'teachers': [x['teacher']], 'classes': list(x.get('classes', [])), 'groups': [],
@@ -558,7 +563,7 @@ def info(p):
     return {'admin': {k: v for k, v in a.items()}, 'teachers': pub, 'sections': sections(p), 'needs': needs(p),
             'classes': [{'id': c['id'], 'name': c['name'], 'short': c.get('short') or c['name'], 'grade': core.grade_of(c)} for c in grade_classes(p)],
             'kinds': EXTRA_KINDS, 'kladoi': [k for k, _, _ in KLADOI], 'periods_allday': allday_matrix(p)['periods'],
-            'special_kinds': [[k, v[0], v[1]] for k, v in SPECIAL_KINDS.items()], 'conflicts': special_conflicts(p)}
+            'special_kinds': [[k, v[0], v[1]] for k, v in SPECIAL_KINDS.items()], 'special_poster': SPECIAL_POSTER, 'conflicts': special_conflicts(p)}
 
 
 # ------------------------------------------------------------------ σύνδεση με «Εφημερίες»

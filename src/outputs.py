@@ -54,6 +54,24 @@ def short(x):
     return x.get('short') or x['name']
 
 
+def _plain(s):
+    import unicodedata
+    return ''.join(ch for ch in unicodedata.normalize('NFD', str(s or '').lower()) if unicodedata.category(ch) != 'Mn')
+
+
+def zone_subject(s):
+    """Πρωινή Ζώνη / Ολοήμερο: στην αφίσα δεν χρειάζεται τμήμα (εκτός αν οριστεί αλλιώς στο μάθημα)."""
+    n = _plain(s.get('name', '')) + ' ' + _plain(s.get('short', ''))
+    return 'ολοημερ' in n or 'πρωιν' in n
+
+
+def poster_label(s):
+    """(συντομογραφία αφίσας, να φαίνεται το τμήμα;) — από τα στοιχεία του μαθήματος."""
+    lab = (s.get('poster') or '').strip() or short(s)
+    cls = s.get('poster_class')
+    return lab, (not zone_subject(s)) if cls is None else bool(cls)
+
+
 def texts(p, l, kind, compact):
     """(πάνω, κάτω) κείμενο κελιού ανάλογα με την κατηγορία της αναφοράς."""
     S = by_id(p, 'subjects'); T = by_id(p, 'teachers'); C = by_id(p, 'classes'); R = by_id(p, 'rooms')
@@ -64,9 +82,10 @@ def texts(p, l, kind, compact):
     if kind == 'classes':
         return subj, ', '.join(tn)
     if kind == 'teachers':
-        if compact:  # αφίσα: τμήμα πάνω, μάθημα κάτω· μεγάλες ονομασίες τμήματος → συντομογραφία μαθήματος
-            top = '+'.join(cn)
-            return (top if top and len(top) <= 4 else short(s)), (short(s) if top and len(top) <= 4 else '')
+        if compact:  # αφίσα: τμήμα πάνω, μάθημα κάτω· μεγάλες ονομασίες τμήματος → μόνο η συντομογραφία μαθήματος
+            lab, with_cls = poster_label(s)
+            top = '+'.join(cn) if with_cls else ''
+            return (top if top and len(top) <= 4 else lab), (lab if top and len(top) <= 4 else '')
         return (' + '.join(cn) or subj), (s['name'].upper() if cn else '')
     if kind == 'rooms':
         return subj, ' + '.join(cn) + (' · ' if cn and tn else '') + ', '.join(tn)

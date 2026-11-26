@@ -308,6 +308,19 @@ class Prints(unittest.TestCase):
         empty = [c for row in ws.iter_rows(min_row=5, min_col=2) for c in row if c.value is None]
         self.assertTrue(empty and all(c.fill.fgColor.rgb == 'FFD9D9D9' for c in empty))   # γκρι τα κενά
 
+    def test_poster_abbreviations(self):
+        import outputs, admin
+        p = school()
+        cells = lambda q: {(c['top'], c['bottom']) for r in outputs.pages(q, {'kind': 'teachers', 'mode': 'poster_all'})[0]['rows'] for c in r['cells'].values()}
+        S = {s['name']: s for s in p['subjects']}
+        self.assertTrue(any(c == ('ΟΛ', '') for c in cells(p)))            # Ολοήμερο: χωρίς τμήμα από προεπιλογή
+        S['ΓΛΩΣΣΑ']['poster'] = 'ΓΛ'; S['Ολοήμερο']['poster_class'] = True
+        got = cells(p)
+        self.assertIn(('Α', 'ΓΛ'), got); self.assertTrue(any(b == 'ΟΛ' and t.startswith('ΟΛ') for t, b in got))
+        p['admin'] = {'programs': {'parall': True}, 'special_poster': {'parall': {'short': 'ΠΣ', 'cls': False}},
+                      'specials': [{'id': 'x', 'kind': 'parall', 'teacher': p['teachers'][0]['id'], 'classes': [p['classes'][0]['id']], 'hours': 1, 'slots': [[4, 9]]}]}
+        self.assertIn(('ΠΣ', ''), cells(p))
+
     def test_needs_print(self):
         import outputs
         p = school(); pg = outputs.pages(p, {'mode': 'needs'})[0]
