@@ -657,6 +657,14 @@ def xlsx_pages(x, p, pgs, opts):
                     for k in range(1, c['span']): sh['cells'][rr + k, d + 2] = ('', s)
         elif pg['type'] == 'matrix' and pg.get('combined'):
             xlsx_director(x, p, pg, school, year)
+        elif pg['type'] == 'matrix' and pg['poster'] and LABELS['teachers'] in pg['name']:
+            # Αφίσα τοίχου εκπαιδευτικών: ίδια εμφάνιση με την αφίσα Διεύθυνσης· Πρωινή Ζώνη / Ολοήμερο σε δεύτερο φύλλο
+            xlsx_director(x, p, pg, school, year, sheet='Αφίσα — ' + LABELS['teachers'])
+            ex = pg.get('extra') or []
+            rows_ex = [r for r in pg['rows'] if any((d, i) in r['cells'] for d in range(5) for i in ex)]
+            if ex and rows_ex:
+                xlsx_director(x, p, pg, school, year, per=ex, rows=rows_ex, sheet='Αφίσα — ' + extra_title(p).replace('/', '-'),
+                              heading=extra_title(p))
         elif pg['type'] == 'matrix':
             poster = pg['poster']; ex = pg.get('extra') or []
             blocks = [(pg['periods'], pg['rows'], '')]
@@ -718,18 +726,20 @@ def xlsx_pages(x, p, pgs, opts):
                 sh['heights'][ri] = 16 * max(1, max(str(v).count('\n') + 1 for v in row)) + 4
 
 
-def xlsx_director(x, p, pg, school, year):
-    """Αφίσα Διεύθυνσης σε Excel: όλες οι ώρες σε έναν πίνακα, ασπρόμαυρη, γκρι τα κενά,
+def xlsx_director(x, p, pg, school, year, per=None, rows=None, sheet=None, heading=None):
+    """Αφίσα Διεύθυνσης (και αφίσα τοίχου εκπαιδευτικών) σε Excel: ασπρόμαυρη, γκρι τα κενά,
     έντονα περιγράμματα ανά ημέρα, A3 οριζόντιο σε ένα πλάτος σελίδας."""
-    per = pg['periods']; n = len(per); ncols = 1 + 5 * n; last = len(pg['rows'])
-    sh = x.sheet(pg['name'].replace('Αφίσα Διεύθυνσης', 'Διεύθυνση'), landscape=True, a3=True, freeze=(4, 1))
+    per = pg['periods'] if per is None else per
+    rows = pg['rows'] if rows is None else rows
+    n = len(per); ncols = 1 + 5 * n; last = len(rows)
+    sh = x.sheet((sheet or pg['name'].replace('Αφίσα Διεύθυνσης', 'Διεύθυνση'))[:31], landscape=True, a3=True, freeze=(4, 1))
     sh['margins'] = (0.2, 0.35)
     sh['widths'] = {1: 20, **{c: 5.43 for c in range(2, ncols + 1)}}
     half = ncols // 2 + 1
     sh['cells'][1, 1] = (school, x.style(dict(size=20, bold=True, h='left')))
     sh['cells'][1, half] = (year, x.style(dict(size=20, bold=True, h='right')))
     sh['merges'] += [(1, 1, 1, half - 1), (1, half, 1, ncols)]; sh['heights'][1] = 33
-    sh['cells'][2, 1] = (pg.get('heading') or '', x.style(dict(size=26, bold=True, fg='000000')))
+    sh['cells'][2, 1] = (heading if heading is not None else (pg.get('heading') or ''), x.style(dict(size=26, bold=True, fg='000000')))
     sh['merges'].append((2, 1, 2, ncols)); sh['heights'][2] = 35.25
     sh['merges'].append((3, 1, 4, 1))
     for d in range(5):
@@ -741,7 +751,7 @@ def xlsx_director(x, p, pg, school, year):
                                                                               border=(edge[0] or 'thin', edge[1] or 'thin', 'medium', 'medium'))))
         sh['merges'].append((3, c0, 3, c0 + n - 1))
     sh['heights'][3] = 27; sh['heights'][4] = 24.75
-    for ri, row in enumerate(pg['rows']):
+    for ri, row in enumerate(rows):
         r = 5 + ri; top = 'thick' if ri == 0 else 'thin'; bottom = 'thick' if ri == last - 1 else 'thin'
         sh['cells'][r, 1] = (row['name'], x.style(dict(size=12, bold=True, h='left', fill='F4F6F8', border=('thick', 'thick', top, bottom))))
         for d in range(5):

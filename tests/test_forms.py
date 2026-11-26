@@ -308,6 +308,17 @@ class Prints(unittest.TestCase):
         empty = [c for row in ws.iter_rows(min_row=5, min_col=2) for c in row if c.value is None]
         self.assertTrue(empty and all(c.fill.fgColor.rgb == 'FFD9D9D9' for c in empty))   # γκρι τα κενά
 
+    def test_poster_xlsx_director_style(self):
+        import outputs
+        p = school()
+        wb = openpyxl.load_workbook(io.BytesIO(outputs.export_xlsx(p, {'kind': 'teachers', 'mode': 'poster'})))
+        self.assertEqual(len(wb.worksheets), 2)                          # κύριο ωράριο + Πρωινή Ζώνη / Ολοήμερο
+        for ws in wb.worksheets:
+            self.assertEqual(ws.freeze_panes, 'B5'); self.assertEqual(ws.cell(3, 2).border.left.style, 'thick')
+            empty = [c for row in ws.iter_rows(min_row=5, min_col=2) for c in row if c.value is None]
+            self.assertTrue(empty and all(c.fill.fgColor.rgb == 'FFD9D9D9' for c in empty))
+        self.assertEqual(wb.worksheets[1]['A2'].value, outputs.extra_title(p))
+
     def test_poster_abbreviations(self):
         import outputs, admin
         p = school()
