@@ -1,0 +1,7 @@
+{
+  "app": "orologio-dimotikou",
+  "version": "0.40.1-beta",
+  "file": "Orologio_Enimerosi.zip",
+  "sha256": "a67a789f9c50793f79afcfa3bb652357bdbf650d10e60cf6537598627140ee2e",
+  "notes": "**Νέα εγκατάσταση:** κατεβάστε το `Orologio_Sxoleiou_Setup.exe` και ανοίξτε το.\r\n\r\nΜόνιμος σύνδεσμος λήψης (πάντα η τελευταία έκδοση): https://github.com/stam1966/orologio-sxoleiou/releases/latest/download/Orologio_Sxoleiou_Setup.exe\r\n\r\n**Ενημέρωση υπάρχουσας εγκατάστασης:** μέσα στην εφαρμογή «Σχολείο & ωράριο → Ενημέρωση» (ή σύρετε το `Orologio_Enimerosi_….zip` στο παράθυρο).\r\n\r\nΜόνιμος σύνδεσμος αρχείου ενημέρωσης (πάντα η τελευταία έκδοση): https://github.com/stam1966/orologio-sxoleiou/releases/latest/download/Orologio_Enimerosi.zip\r\n\r\n[Code signing policy](https://github.com/stam1966/orologio-sxoleiou/blob/main/CODE_SIGNING_POLICY.md) · Άδεια: GPL-3.0 · Ιδέα και σχεδιασμός: Σταμάτης Κοκολόγος, εκπαιδευτικός ΠΕ70, 22ο Δημοτικό Σχολείο Λαμίας\r\n\r\n```\r\n﻿ΩΡΟΛΟΓΙΟ ΣΧΟΛΕΙΟΥ — 0.40.1 beta\r\n\r\n• Αφίσα τοίχου εκπαιδευτικών σε Excel με την ίδια εμφάνιση όπως η\r\n  Αφίσα Διεύθυνσης (σχολείο/έτος, μεγάλος τίτλος, γκρι επικεφαλίδες,\r\n  έντονα περιγράμματα ανά ημέρα, γκρι κενά, A3 οριζόντιο).\r\n  Η Πρωινή Ζώνη / Ολοήμερο σε δεύτερο φύλλο.\r\n\r\n```\r\n"
+}
